@@ -1,0 +1,9 @@
+description "该module除了core和third-lib以外不能依赖任何其他组件。"
+
+dependencies {
+    // 该module除了core和third-lib以外不能依赖任何其他组件!!!
+    api project(":afw-core")
+    api "com.ktd.agent:afw-third-lib:${ktdThirdLibVersion}"
+
+    testImplementation "com.alibaba:fastjson:${fastJsonVersion}"
+}

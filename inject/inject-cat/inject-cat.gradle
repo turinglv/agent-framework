@@ -1,0 +1,15 @@
+dependencies {
+    provided(project(':afw-boot-api'),)
+
+    provided("com.dianping.cat:cat-client:3.0.0") {
+        transitive = false
+    }
+
+    testImplementation project(':afw-boot-impl')
+}
+
+jar {
+    manifest {
+        attributes 'Afw-Injector-Defines': "com.ktd.service.afw.inject.cat.CatHomeInjectorDefine"
+    }
+}

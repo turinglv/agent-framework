@@ -1,0 +1,47 @@
+apply plugin: 'com.github.johnrengelman.shadow'
+
+version = "${ktdThirdLibVersion}"
+
+ext {
+    uploadShadow = true
+    uploadArchive = false
+    uploadSource = false
+}
+
+dependencies {
+    implementation(
+            "com.alibaba:transmittable-thread-local:${transmittableThreadLocal}",
+            "net.bytebuddy:byte-buddy:${byteBuddyVersion}",
+            "net.bytebuddy:byte-buddy-agent:${byteBuddyVersion}",
+            "org.javassist:javassist:${javassistVersion}",
+    )
+}
+
+shadowJar {
+    baseName = project.name
+    version = project.version
+    exclude 'META-INF/**'
+    exclude 'com/alibaba/ttl/internal/**'
+    exclude 'com/alibaba/ttl/internal/**'
+    relocate 'com.alibaba.ttl.internal.javassist.', 'ktd.javassist.'
+    relocate 'javassist.', 'ktd.javassist.'
+    relocate 'net.bytebuddy.', 'ktd.bb.'
+    relocate 'javassist.', 'ktd.javassist.'
+}
+
+publishing {
+    if (uploadShadow) {
+        publications {
+            maven(MavenPublication) {
+                artifact source: this.tasks['shadowJar'].properties['archivePath'], extension: 'jar'
+            }
+        }
+    }
+}
+
+sourceJar.dependsOn shadowJar
+shadowJar.mustRunAfter jar
+publishToMavenLocal.dependsOn shadowJar
+publishToMavenLocal.mustRunAfter shadowJar
+publish.dependsOn shadowJar
+publish.mustRunAfter shadowJar

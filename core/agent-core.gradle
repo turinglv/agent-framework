@@ -1,0 +1,5 @@
+// 这个类给Collector使用
+ext {
+    uploadArchive = true
+    uploadSource = true
+}

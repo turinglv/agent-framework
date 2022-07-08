@@ -1,0 +1,107 @@
+apply plugin: 'com.github.johnrengelman.shadow'
+
+ext {
+    projectInfoFile = "agent-info.properties"
+}
+
+configurations {
+    boot.exclude module: "afw-boot-api"
+    boot.exclude module: "afw-core"
+}
+
+dependencies {
+
+    api project(":afw-boot-api")
+
+    boot project(":afw-boot-impl")
+    boot "com.google.code.gson:gson:${gsonVersion}"
+    boot "org.slf4j:slf4j-api:${slf4jVersion}"
+}
+
+rootProject.injectProjects.each {
+    injectProject -> this.dependencies.add("inject", injectProject, { transitive = false })
+}
+
+
+rootProject.pluginProjects.each { pluginProject ->
+    // 这里使用传递依赖，将Curator等包依赖进来。
+    this.dependencies.add("boot", pluginProject)
+}
+
+jar {
+    doFirst {
+        def versionFile = new File(project.buildDir, projectInfoFile)
+        def versionPw = versionFile.newPrintWriter()
+        versionPw.println('version=' + project.version)
+        versionPw.close()
+    }
+
+    manifest {
+        attributes('Premain-Class': 'com.ktd.service.afw.agent.AfwAgent',
+                'Can-Redefine-Classes': true,
+                'Can-Retransform-Classes': true,
+                'Can-Set-Native-Method-Prefix': false,)
+    }
+}
+
+shadowJar {
+    baseName = project.name
+    classifier = "shadow"
+    version = project.version
+    mergeServiceFiles()
+    mergeServiceFiles {
+        path = '/META-INF/afw'
+    }
+    exclude 'javassist/**'
+    relocate 'javassist', 'ktd.javassist'
+}
+
+task repackageJar(type: Jar) {
+
+    archiveName "${this.name}-${this.version}-bin.jar"
+
+    entryCompression = ZipEntryCompression.DEFLATED
+
+    into('/inject') {
+        from configurations.inject
+        rename "(.*)\\-${this.version}(.*)", '$1$2'
+    }
+
+    into('/') {
+        from zipTree(this.tasks['shadowJar'].property(['archivePath']))
+        include "ktd/**"
+        include "com/ktd/service/afw/agent/**"
+        include "com/ktd/service/afw/boot/api/**"
+        include "com/ktd/service/afw/core/**"
+        include "org/springframework/aop/SpringProxy.class"
+        include "com/alibaba/ttl/**"
+        include "META-INF/afw/**"
+        include "agent-log.properties"
+    }
+
+    into('/boot') {
+        from configurations.boot
+    }
+
+    into('/') {
+        from this.buildDir.absolutePath + '/' + projectInfoFile
+    }
+
+    manifest {
+        from project.jar.manifest
+    }
+}
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifact source: repackageJar, classifier: 'bin', extension: 'jar'
+        }
+    }
+}
+
+shadowJar.mustRunAfter jar
+repackageJar.mustRunAfter shadowJar
+publishToMavenLocal.dependsOn shadowJar
+publish.dependsOn shadowJar
+publishToMavenLocal.dependsOn repackageJar
+publish.dependsOn repackageJar

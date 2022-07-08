@@ -1,0 +1,252 @@
+buildscript {
+    repositories {
+        repositories {
+            mavenLocal()
+            mavenCentral()
+            maven { url "https://maven.aliyun.com/repository/public" }
+        }
+    }
+
+    dependencies {
+        classpath "org.springframework.boot:spring-boot-gradle-plugin:$springBootVersion"
+        classpath "com.github.jengelman.gradle.plugins:shadow:$shadowVersion"
+//        classpath "me.champeau.gradle:jmh-gradle-plugin:0.1"
+    }
+}
+
+rootProject.version = version
+
+ext {
+    env = System.getProperty("env") == null ? "development" : System.getProperty("env")
+
+    ext.gradleScriptDir = "${rootProject.projectDir}/gradle"
+
+    println "Version: " + version
+
+    // 通用项目
+    commonProjects = subprojects.findAll {
+        it.projectDir.parent.equals("${rootDir}")
+    }
+
+    // inject项目
+    injectProjects = subprojects.findAll {
+        !it.name.contains("test") && it.projectDir.parent.replaceAll("\\\\", "/").equals("${rootDir}/inject".replaceAll("\\\\", "/").toString())
+    }
+
+    // plugin项目
+    pluginProjects = subprojects.findAll {
+        it.projectDir.parent.replaceAll("\\\\", "/").equals("${rootDir}/plugin".replaceAll("\\\\", "/").toString())
+    }
+
+    println "pluginProjects: " + pluginProjects
+
+    rootProject.extensions.add("injectProjects", injectProjects)
+    rootProject.extensions.add("pluginProjects", pluginProjects)
+
+}
+
+configure(subprojects) { subproject ->
+    group = "com.ktd.service.afw"
+    version = version
+
+    ext.gradleScriptDir = "${rootProject.projectDir}/gradle"
+
+    apply plugin: 'java-library'
+    apply plugin: "jacoco"
+    apply plugin: 'idea'
+    apply plugin: 'maven-publish'
+
+    repositories {
+        mavenLocal()
+        maven { url "https://maven.aliyun.com/repository/public" }
+    }
+    ext {
+        uploadArchive = false
+        uploadSource = false
+    }
+
+    compileJava.options.encoding = 'UTF-8'
+    compileTestJava.options.encoding = "UTF-8"
+
+    configurations {
+        provided
+        boot
+        plugin
+        inject
+        all {
+            exclude group: 'commons-logging'
+            exclude group: 'commons-digester'
+            exclude group: 'org.apache.logging.slf4j'
+            exclude module: 'slf4j-log4j12'
+            exclude group: 'log4j'
+            exclude group: 'ch.qos.logback'
+            exclude module: 'log4j-to-slf4j'
+            exclude group: 'com.google.code.findbugs'
+            exclude group: 'com.google.errorprone'
+            exclude group: 'com.google.j2objc'
+            exclude group: 'org.springframework', module: 'spring'
+            exclude group: 'org.jboss.netty', module: 'netty'
+            resolutionStrategy {
+                // 第三方
+                force group: 'net.bytebuddy', name: 'byte-buddy', version: "${byteBuddyVersion}"
+                force group: 'net.bytebuddy', name: 'byte-buddy-agent', version: "${byteBuddyVersion}"
+                force group: "ch.qos.logback", name: "logback-core", version: "${logbackVersion}"
+                force group: "ch.qos.logback", name: "logback-classic", version: "${logbackVersion}"
+
+                force group: "com.alibaba", name: "fastjson", version: "${fastJsonVersion}"
+                force group: "com.google.code.gson", name: "gson", version: "${gsonVersion}"
+                force group: "com.google.guava", name: "guava", version: "${guavaVersion}"
+
+                force group: "org.javassist", name: "javassist", version: "${javassistVersion}"
+                force group: 'org.mockito', name: 'mockito-core', version: "${mockitoVersion}"
+                force group: 'org.ow2.asm', name: 'asm', version: "${asmVersion}"
+                force group: "org.slf4j", name: "slf4j-api", version: "${slf4jVersion}"
+                force group: 'org.springframework.boot', name: 'spring-boot-autoconfigure', version: "${springBootVersion}"
+            }
+        }
+    }
+
+    compileJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        //在验证代码的时候开启，其他时候不需
+        options.compilerArgs << "-parameters"
+    }
+
+    compileTestJava {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+        options.compilerArgs << "-parameters"
+    }
+
+    dependencies {
+
+        testImplementation(
+                "junit:junit:${junitVersion}",
+                "org.testng:testng:${testngVersion}",
+                "com.alibaba:fastjson:${fastJsonVersion}",
+                "org.mockito:mockito-core:$mockitoVersion",
+                "org.mockito:mockito-inline:$mockitoVersion",
+                "org.powermock:powermock-api-mockito2:$powermockVersion",
+                "org.powermock:powermock-module-junit4:$powermockVersion",
+
+                "org.slf4j:slf4j-api:${slf4jVersion}",
+                "org.slf4j:jcl-over-slf4j:${slf4jVersion}",
+                "org.springframework.boot:spring-boot-starter-test:${springBootVersion}",
+        )
+
+    }
+
+    ext.originManifest = manifest {
+        attributes('Created-By': "${System.getProperty("java.version")} (${System.getProperty("java.specification.vendor")})",
+                'GroupId': project.group,
+                'ArtifactId': project.name,
+                'Version': project.version,
+                'Build-Date': new Date().format("yyyy-MM-dd HH:mm:ss"),
+                'Author': "${System.getProperty("user.name")}",
+                'OS-Name': "${System.getProperty("os.name")}",
+                'OS-Arch': "${System.getProperty("os.arch")}",
+                'OS-Version': "${System.getProperty("os.version")}",
+                'Specification-Version': "${specVersion}",
+                'Specification-Title': "Afw Agent",
+                'Specification-Vendor': "Ktd.COM",
+                'Implementation-Version': project.version,
+                'Implementation-Title': "Afw Agent",
+                'Implementation-Vendor': "Ktd.COM",
+                'IP': getLocalIp())
+    }
+
+    jar {
+        manifest = project.manifest {
+            from originManifest
+        }
+    }
+
+    task sourceJar(type: Jar, dependsOn: classes) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+        manifest = project.manifest {
+            from originManifest
+        }
+
+    }
+
+    sourceSets {
+
+        main {
+            compileClasspath += configurations.provided
+            resources.srcDirs = ["src/main/resources/base", "src/main/resources/$env"]
+        }
+
+        test {
+            compileClasspath += configurations.provided
+            runtimeClasspath += configurations.provided
+            resources.srcDirs = ["src/test/resources/base", "src/test/resources/$env"]
+        }
+    }
+
+    idea {
+        module {
+            scopes.PROVIDED.plus += [configurations.provided]
+            downloadJavadoc = false
+            downloadSources = true
+        }
+    }
+
+    javadoc {
+        options.encoding = 'UTF-8'
+    }
+
+    publishing {
+        if (subproject.uploadArchive) {
+            publications {
+                mavenJava(MavenPublication) {
+                    from components.java
+                    if (subproject.uploadSource) {
+                        artifact sourceJar {
+                            classifier = 'sources'
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    task testNG(type: Test) {
+        useTestNG()
+        jacoco {
+            destinationFile = file("$buildDir/jacoco/test.exec")
+        }
+    }
+    test {
+        dependsOn testNG
+    }
+    task allDeps(type: DependencyReportTask) {}
+    publish.dependsOn build
+    publish.dependsOn jar
+    publishToMavenLocal.dependsOn build
+    publishToMavenLocal.dependsOn jar
+
+}
+
+
+configure(injectProjects) { subject ->
+    dependencies {
+        testImplementation project(":afw-core")
+        testImplementation project(":afw-boot-api")
+        testImplementation project(":afw-boot-impl")
+
+    }
+}
+
+def getLocalIp() {
+    def ips = ""
+    NetworkInterface.getNetworkInterfaces().each { iface ->
+        iface.inetAddresses.each { addr ->
+            if (addr.hostAddress.startsWith("10.") || addr.hostAddress.startsWith("192.") || addr.hostAddress.startsWith("172.")) {
+                ips += addr.hostAddress + ","
+            }
+        }
+    }
+    return ips
+}

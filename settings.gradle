@@ -1,0 +1,52 @@
+rootProject.name = 'agent-framework'
+
+String[] commonModules = [
+        'agent',
+        'core',
+        'boot-api',
+        'boot-impl',
+        'third-lib',
+]
+
+include commonModules
+
+commonModules.each { name ->
+    def p = findProject(":${name}")
+    p.name = "afw-${name}"
+    p.buildFileName = "${name}.gradle"
+}
+
+/**
+ * Inject Modules
+ */
+String[] injectModules = [
+        'inject-cat',
+]
+
+include injectModules
+
+injectModules.each { name ->
+    def p = findProject(":${name}")
+    p.name = "${name}"
+    p.buildFileName = "${name}.gradle"
+    p.projectDir = "${rootDir}/inject/${name}" as File
+}
+
+
+/**
+ * plugin Modules
+ */
+String[] pluginModules = [
+        'guava',
+        'slf4j-impl'
+]
+
+include pluginModules
+
+pluginModules.each { name ->
+    def p = findProject(":${name}")
+    p.name = "afw-plugin-${name}"
+    p.buildFileName = "${name}.gradle"
+    p.projectDir = "${rootDir}/plugin/${name}" as File
+}
+

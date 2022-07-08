@@ -1,0 +1,3 @@
+FAT=com.ktd.service.afw.boot.api.config.filler.EnvTestConfigFiller
+pro=com.ktd.service.afw.boot.api.config.filler.EnvProduceConfigFiller
+dev=com.ktd.service.afw.boot.api.config.filler.EnvDevConfigFiller

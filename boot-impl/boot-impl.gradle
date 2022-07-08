@@ -1,0 +1,12 @@
+dependencies {
+    provided(
+            project(":afw-boot-api"),
+    )
+
+    provided(
+            "com.google.code.gson:gson:${gsonVersion}",
+            "javax.servlet:javax.servlet-api:${javaxServletApiVersion}",
+            "org.slf4j:slf4j-api:$slf4jVersion",
+    )
+
+}

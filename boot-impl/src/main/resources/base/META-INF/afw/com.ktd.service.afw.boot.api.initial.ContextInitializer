@@ -1,0 +1,2 @@
+Event=com.ktd.service.afw.boot.impl.initial.EventContextInitializer
+GsonSerializer=com.ktd.service.afw.boot.impl.initial.SerializerContextInitializer
